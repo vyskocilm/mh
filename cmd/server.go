@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net"
 	"os"
 	"os/signal"
-	"runtime"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -22,37 +22,11 @@ var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Run mh server",
 	Long:  `Start mh as HTTP server ready to accept conections`,
+    Args: func(cmd *cobra.Command, args []string) error {
+        return parseArgs(cmd, args)
+    },
 	Run: func(cmd *cobra.Command, args []string) {
-		hosts := ""
-		if len(args) > 0 {
-			hosts = args[0]
-		}
-
-		// autodetect the location
-		if hosts == "" {
-			switch runtime.GOOS {
-			case "darwin":
-				hosts = "/etc/hosts"
-			case "dragonfly":
-				hosts = "/etc/hosts"
-			case "freebsd":
-				hosts = "/etc/hosts"
-			case "linux":
-				hosts = "/etc/hosts"
-			case "netbsd":
-				hosts = "/etc/hosts"
-			case "openbsd":
-				hosts = "/etc/hosts"
-			case "solaris":
-				hosts = "/etc/hosts"
-			case "windows":
-				hosts = `C:\Windows\System32\drivers\etc`
-			default:
-				exitOnErr(
-					fmt.Errorf("Unknown operating system: %s, please pass hosts file location on a command line", runtime.GOOS))
-			}
-		}
-		startServer(hosts)
+		startServer(&cfg)
 	},
 }
 
@@ -102,9 +76,12 @@ func (s *mhSvc) delEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 // startServer starts HTTP server prividing an interface between commands and hosts file
-func startServer(hosts string) {
+//  hosts - location of /etc/hosts
+//  unix - path to unix socket (takes a precedence over port)
+//  port - HTTP port number to listen on
+func startServer(cfg *mhCfg) {
 
-	estore, err := newEStoreMx(hosts)
+	estore, err := newEStoreMx(cfg.hostsPath)
 	if err != nil {
 		exitOnErr(err)
 	}
@@ -120,7 +97,6 @@ func startServer(hosts string) {
 	apiV1.HandleFunc("/e/{ipOrName}", svc.delEntry).Methods("DELETE")
 
 	srv := &http.Server{
-		Addr: ":1234",
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
@@ -130,9 +106,22 @@ func startServer(hosts string) {
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			fmt.Println(err.Error())
-		}
+        if (cfg.unix != "") {
+            unixListener, err := net.Listen("unix", cfg.unix)
+            if err != nil {
+                panic(err)
+            }
+            err = socketGroup(cfg)
+            srv.Serve(unixListener)
+            if err != nil {
+                exitOnErr(err)
+            }
+        } else {
+            srv.Addr = fmt.Sprintf(":%s", cfg.port)
+            if err := srv.ListenAndServe(); err != nil {
+                fmt.Println(err.Error())
+            }
+        }
 	}()
 
 	c := make(chan os.Signal, 1)
@@ -145,6 +134,9 @@ func startServer(hosts string) {
 
 	// cleanup the state, remove temporary files
 	estore.Close()
+    if cfg.unix != "" {
+        os.Remove(cfg.unix)
+    }
 
 	wait := 15 * time.Second
 	// Create a deadline to wait for.

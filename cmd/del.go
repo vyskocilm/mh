@@ -17,6 +17,10 @@ var delCmd = &cobra.Command{
 	Short: "delete entries from hosts",
 	Long:  `delete first matching IP or name from hosts, supports more arguments`,
 	Args: func(cmd *cobra.Command, args []string) error {
+        err := parseArgs(cmd, args)
+        if err != nil {
+            return err
+        }
 		if len(args) < 1 {
 			return errors.New("Command del requires at least one `ip' or `name' argument")
 		}
@@ -24,7 +28,7 @@ var delCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
-		c := http.Client{}
+		c := cfg.HTTPClient()
 		for i := range args {
 			req, err := http.NewRequest(
 				"DELETE",

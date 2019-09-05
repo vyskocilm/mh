@@ -22,9 +22,16 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "list entries in hosts",
 	Long:  `list prints all managed entries from hosts file`,
+	Args: func(cmd *cobra.Command, args []string) error {
+        err := parseArgs(cmd, args)
+        if err != nil {
+            return err
+        }
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 
-		c := http.Client{}
+		c := cfg.HTTPClient()
 		req, err := http.NewRequest(
 			"GET",
 			"http://localhost:1234/v1/e",

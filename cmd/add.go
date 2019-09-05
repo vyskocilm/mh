@@ -39,6 +39,10 @@ var addCmd = &cobra.Command{
 	Short: "add entry to hosts",
 	Long:  `add new ip name entry to hosts file`,
 	Args: func(cmd *cobra.Command, args []string) error {
+        err := parseArgs(cmd, args)
+        if err != nil {
+            return err
+        }
 		if len(args) < 2 {
 			return errors.New("Command add requires `ip' `name' arguments")
 		}
@@ -46,7 +50,7 @@ var addCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
-		c := http.Client{}
+		c := cfg.HTTPClient()
 		req, err := http.NewRequest(
 			"PUT",
 			fmt.Sprintf("http://localhost:1234/v1/e/%s/%s", args[0], args[1]),
