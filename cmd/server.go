@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -22,9 +23,9 @@ var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Run mh server",
 	Long:  `Start mh as HTTP server ready to accept conections`,
-    Args: func(cmd *cobra.Command, args []string) error {
-        return parseArgs(cmd, args)
-    },
+	Args: func(cmd *cobra.Command, args []string) error {
+		return parseArgs(cmd, args)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		startServer(&cfg)
 	},
@@ -106,37 +107,39 @@ func startServer(cfg *mhCfg) {
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-        if (cfg.unix != "") {
-            unixListener, err := net.Listen("unix", cfg.unix)
-            if err != nil {
-                panic(err)
-            }
-            err = socketGroup(cfg)
-            srv.Serve(unixListener)
-            if err != nil {
-                exitOnErr(err)
-            }
-        } else {
-            srv.Addr = fmt.Sprintf(":%s", cfg.port)
-            if err := srv.ListenAndServe(); err != nil {
-                fmt.Println(err.Error())
-            }
-        }
+		if cfg.unix != "" {
+			unixListener, err := net.Listen("unix", cfg.unix)
+			if err != nil {
+				panic(err)
+			}
+			err = socketGroup(cfg)
+			srv.Serve(unixListener)
+			if err != nil {
+				exitOnErr(err)
+			}
+		} else {
+			srv.Addr = fmt.Sprintf(":%s", cfg.port)
+			if err := srv.ListenAndServe(); err != nil {
+				fmt.Println(err.Error())
+			}
+		}
 	}()
 
 	c := make(chan os.Signal, 1)
 	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
 	// SIGKILL, SIGQUIT or SIGTERM (Ctrl+/) will not be caught.
-	signal.Notify(c, os.Interrupt)
-
+	signal.Notify(c, syscall.SIGINT)
+	signal.Notify(c, syscall.SIGKILL)
+	signal.Notify(c, syscall.SIGQUIT)
+	signal.Notify(c, syscall.SIGTERM)
 	// Block until we receive our signal.
 	<-c
 
 	// cleanup the state, remove temporary files
 	estore.Close()
-    if cfg.unix != "" {
-        os.Remove(cfg.unix)
-    }
+	if cfg.unix != "" {
+		os.Remove(cfg.unix)
+	}
 
 	wait := 15 * time.Second
 	// Create a deadline to wait for.

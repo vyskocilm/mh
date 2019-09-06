@@ -67,6 +67,8 @@ have docker installed and configured.
 9. how to deal with duplicates? should it be smart?
 10. drop data from memory on commit fail!
 11. allow usage of different group for unix socket
+12. remove socket begore server start
+13. socket activation
 
 ## concept: transactions (?)
 

@@ -29,6 +29,6 @@ func socketGroup(cfg *mhCfg) error {
         return err
     }
 
-    err = unix.Chmod(cfg.unix, 0660)
+    err = unix.Chmod(cfg.unix, 0666)
     return err
 }
