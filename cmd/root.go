@@ -140,7 +140,7 @@ func parseArgs(cmd *cobra.Command, args []string) error {
 var rootCmd = &cobra.Command{
 	Use:   "mh",
 	Short: "mh let you dynamically manage /etc/hosts",
-	Long: `Easy to use way of managing /etc/hosts
+    Long: `Easy to use /etc/hosts management
         with a simple and clean command line interface and garbage collection`,
     Args: func(cmd *cobra.Command, args []string) error {
         return parseArgs(cmd, args)
