@@ -146,7 +146,8 @@ var rootCmd = &cobra.Command{
         return parseArgs(cmd, args)
     },
 	Run: func(cmd *cobra.Command, args []string) {
-		// Do Stuff Here
+        fmt.Printf(cmd.Short)
+        fmt.Printf("type -h/--help for a help")
 	},
 }
 
