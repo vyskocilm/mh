@@ -66,7 +66,7 @@ func (s *mhSvc) delEntry(w http.ResponseWriter, r *http.Request) {
 	err := s.estore.Del(
 		vars["ipOrName"],
 	)
-	if err != nil {
+	if err != nil && err != errIPOrNameNotFound {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "{\"error\": \"%s\"}", err)
 		return
