@@ -1,10 +1,24 @@
-# myhosts: manage /etc/hosts entries via CLI/HTTP API
+[![CircleCI](https://circleci.com/gh/vyskocilm/mh.svg?style=svg)](https://circleci.com/gh/vyskocilm/mh) [![license](https://img.shields.io/badge/license-mit-green)](https://raw.githubusercontent.com/vyskocilm/mh/master/LICENSE)
+
+# myhosts: manage transient local DNS mapping via simple CLI
 
 > Note: `mh` is not yet released and provides no guarantee about command line
 > or switches or the way it handles duplicates.
 
-**Use case**: as a developer I need to create new DNS mappings for a while from
-a script/program
+## Problem
+
+As a developer I need to test frontend Javascript code dealing with more
+domains as easy as possible.
+
+This expects
+
+ 1. Easy to start/stop various services. Solved by Docker/Postman
+ 2. Assign transient local DNS names.
+ 3. Delete them once containers are not running or by the end of the test.
+
+And last two points are why I wrote `mh`, it will change local DNS (via
+`/etc/hosts`) and point it to local containers. And drop all the
+changes on test stop (or when server is turned off).
 
 ## License
 
