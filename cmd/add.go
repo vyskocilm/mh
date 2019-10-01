@@ -53,8 +53,6 @@ var addCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
-		log.Printf("DDDD: groupVar=%s", groupVar)
-
 		c := cfg.HTTPClient()
 		req, err := http.NewRequest(
 			"PUT",
