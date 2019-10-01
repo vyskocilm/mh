@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -17,21 +17,17 @@ var delGrpCmd = &cobra.Command{
 	Short: "delete all entries from the group from hosts",
 	Long:  `delete all groups from the hosts, supports more arguments or MH_GROUP variable`,
 	Args: func(cmd *cobra.Command, args []string) error {
-        err := parseArgs(cmd, args)
-        applyGroupEnv()
-        if err != nil {
-            return err
-        }
-		if len(args) < 1 || groupVar != defaultGROUP {
-			return errors.New("Command delgrp requires at least one `group'argument, or MH_GROUP environment variable")
+		err := parseArgs(cmd, args)
+		if err != nil {
+			return err
 		}
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
-        if groupVar != defaultGROUP {
-            args = append(args, defaultGROUP)
-        }
+		if v, ok := os.LookupEnv("MH_GROUP"); ok {
+			args = append(args, v)
+		}
 
 		c := cfg.HTTPClient()
 		for i := range args {
