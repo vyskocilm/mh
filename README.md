@@ -27,6 +27,34 @@ mh del ip-or-name
 mh list
 ```
 
+## Groups
+
+mh stores entries by the group allowing one to easilly drop all added entries from one group
+
+```sh
+mh add --group integration_project_1 ip name
+mh add --group integration_project_1 ip2 name2
+...
+mh delgrp integration_project_1
+```
+
+if not specified, entries goes into `$default` group.
+
+It is possible to export `MH_GROUP` variable to ensure `add` and `del` commands
+stays indide group.
+
+
+```sh
+export MH_GROUP=integration_project_1
+
+mh add ip1 name1
+mh add ip2 name2
+mh del ip1
+
+...
+mh delgrp
+```
+
 ## Use with docker
 
 Creates DNS mapping `api.test` to `apimoc_api_1` container
@@ -69,15 +97,8 @@ have docker installed and configured.
 11. allow usage of different group for unix socket
 12. remove socket begore server start
 13. socket activation
-
-## concept: transactions (?)
-
-mark more edits and allow removal of more entries atomically
-
-```
-mh add -tx 11 ip name
-mh del -tx 11
-```
+14. HTTPS/TLS/CA/certificates support - browsers will treat http as insecure soonish
+    so there must be a way to create TLS ready infrastructure
 
 ## Alternatives
 

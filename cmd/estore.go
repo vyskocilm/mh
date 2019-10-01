@@ -8,11 +8,34 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+
+	"github.com/spf13/cobra"
+)
+
+const (
+	defaultGROUP = "$default"
+	GROUP_ENV    = "MH_GROUP"
 )
 
 var (
 	errIPOrNameNotFound = errors.New("IP or Name not found")
+	errGroupNotFound    = errors.New("Group not found")
+	groupVar            string
 )
+
+// add --group/-g flag to the cobra command
+func addGroupFlag(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&groupVar, "group", "g", defaultGROUP, "add entry to specific group, enables fast removal")
+}
+
+// if --group/-g is not specified, read value from GROUP_ENV
+func applyGroupEnv() {
+	if groupVar == defaultGROUP {
+		if value, ok := os.LookupEnv(GROUP_ENV); ok {
+			groupVar = value
+		}
+	}
+}
 
 // e is entry struct
 type e struct {
@@ -22,7 +45,7 @@ type e struct {
 
 // eStore - thread unsafe store of e
 type eStore struct {
-	entries []e
+	entries map[string][]e
 	path    string // original hosts
 	pathmh  string // mh backup
 	pathwrk string // mh working file
@@ -52,7 +75,7 @@ func newEStore(path string) (eStore, error) {
 	}
 
 	return eStore{
-		entries: make([]e, 0),
+		entries: make(map[string][]e, 0),
 		path:    path,
 		pathmh:  pathmh,
 		pathwrk: pathwrk,
@@ -82,8 +105,11 @@ func (es *eStore) Commit() error {
 	}
 
 	fmt.Fprintf(f, "### added by github.com/vyskocilm/mh, entries will be dropped when server stops ###\n")
-	for _, v := range es.entries {
-		fmt.Fprintf(f, "%s\t%s\n", v.IP, v.Name)
+	for group, entries := range es.entries {
+		fmt.Fprintf(f, "### mh group: %s\n", group)
+		for _, v := range entries {
+			fmt.Fprintf(f, "%s\t%s\n", v.IP, v.Name)
+		}
 	}
 	err = f.Close()
 	if err != nil {
@@ -95,22 +121,23 @@ func (es *eStore) Commit() error {
 }
 
 // Add write new ip/name tuple
-func (es *eStore) Add(ip, name string) {
+// FIXME: there are three!! strings in API
+func (es *eStore) Add(ip, name, group string) {
 	e := e{IP: ip, Name: name}
-	es.entries = append(es.entries, e)
+	es.entries[group] = append(es.entries[group], e)
 }
 
 // List returns all data from store
-func (es *eStore) List() []e {
+func (es *eStore) List() map[string][]e {
 	return es.entries
 }
 
 // Del removes the first matching entry - either ip either name
-func (es *eStore) Del(ipOrName string) error {
+func (es *eStore) Del(ipOrName, group string) error {
 
 	idx := -1
 
-	for i, e := range es.entries {
+	for i, e := range es.entries[group] {
 		if e.IP == ipOrName || e.Name == ipOrName {
 			idx = i
 			break
@@ -118,13 +145,25 @@ func (es *eStore) Del(ipOrName string) error {
 	}
 
 	if idx != -1 {
-		es.entries = append(
-			es.entries[:idx],
-			es.entries[idx+1:]...,
+		es.entries[group] = append(
+			es.entries[group][:idx],
+			es.entries[group][idx+1:]...,
 		)
+		if len(es.entries) == 0 {
+			delete(es.entries, group)
+		}
 		return nil
 	}
 	return errIPOrNameNotFound
+}
+
+// DelGroup removes the group - returns errGroupNotFOund
+func (es *eStore) DelGroup(group string) error {
+	if _, ok := es.entries[group]; ok {
+		delete(es.entries, group)
+	}
+
+	return errGroupNotFound
 }
 
 // Adds two new options for eStore
@@ -147,28 +186,45 @@ func newEStoreMx(path string) (eStoreMx, error) {
 }
 
 // Add write new ip/name tuple
-func (es *eStoreMx) Add(ip, name string) error {
+func (es *eStoreMx) Add(ip, name, group string) error {
 	es.mx.Lock()
 	defer es.mx.Unlock()
-	es.es.Add(ip, name)
+	es.es.Add(ip, name, group)
 
 	err := es.es.Commit()
 	return err
 }
 
 // List returns all data from store
-func (es *eStoreMx) List() []e {
+func (es *eStoreMx) List() map[string][]e {
 	es.mx.RLock()
 	defer es.mx.RUnlock()
 	return es.es.List()
 }
 
 // Del removes the first matching entry - either ip either name
-func (es *eStoreMx) Del(ipOrName string) error {
+func (es *eStoreMx) Del(ipOrName, group string) error {
 	es.mx.Lock()
 	defer es.mx.Unlock()
 
-	err := es.es.Del(ipOrName)
+	err := es.es.Del(ipOrName, group)
+	if err != nil {
+		return err
+	}
+	err = es.es.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DelGroup removes the group - returns errGroupNotFOund
+func (es *eStoreMx) DelGroup(group string) error {
+	es.mx.Lock()
+	defer es.mx.Unlock()
+
+	err := es.es.DelGroup(group)
 	if err != nil {
 		return err
 	}

@@ -49,6 +49,7 @@ func (s *mhSvc) addEntry(w http.ResponseWriter, r *http.Request) {
 	err := s.estore.Add(
 		vars["ip"],
 		vars["name"],
+        vars["group"],
 	)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -65,9 +66,26 @@ func (s *mhSvc) delEntry(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	err := s.estore.Del(
 		vars["ipOrName"],
+        vars["group"],
 	)
 	if err != nil && err != errIPOrNameNotFound {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "{\"error\": \"%s\"}", err)
+		return
+	}
+
+	// TODO: more meaingful reply?
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *mhSvc) delGroup(w http.ResponseWriter, r *http.Request) {
+	//TODO: validate hostname
+	vars := mux.Vars(r)
+	err := s.estore.DelGroup(
+        vars["group"],
+	)
+	if err != nil && err != errGroupNotFound {
+		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "{\"error\": \"%s\"}", err)
 		return
 	}
@@ -94,8 +112,9 @@ func startServer(cfg *mhCfg) {
 	r := mux.NewRouter()
 	apiV1 := r.PathPrefix("/v1").Subrouter()
 	apiV1.HandleFunc("/e", svc.listEntries).Methods("GET")
-	apiV1.HandleFunc("/e/{ip}/{name}", svc.addEntry).Methods("PUT")
-	apiV1.HandleFunc("/e/{ipOrName}", svc.delEntry).Methods("DELETE")
+	apiV1.HandleFunc("/e/{group}/{ip}/{name}", svc.addEntry).Methods("PUT")
+	apiV1.HandleFunc("/e/{group}/{ipOrName}", svc.delEntry).Methods("DELETE")
+	apiV1.HandleFunc("/g/{group}", svc.delGroup).Methods("DELETE")
 
 	srv := &http.Server{
 		// Good practice to set timeouts to avoid Slowloris attacks.

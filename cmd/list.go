@@ -18,7 +18,7 @@ func init() {
 	listCmd.Flags().BoolVarP(&printJSON, "json", "", false, "print output as JSON")
 }
 
-var listCmd = &cobra.Command{
+var listCmd = &cobra.Command {
 	Use:   "list",
 	Short: "list entries in hosts",
 	Long:  `list prints all managed entries from hosts file`,
@@ -58,14 +58,17 @@ var listCmd = &cobra.Command{
 		}
 		if !printJSON {
 			// unmarshal
-			var list []e
-			err = json.Unmarshal(b, &list)
+			var entries map[string][]e
+			err = json.Unmarshal(b, &entries)
 			if err != nil {
 				exitOnErr(err)
 			}
-			for _, foo := range list {
-				fmt.Printf("%s\t%s\n", foo.IP, foo.Name)
-			}
+            for group, es := range entries {
+                fmt.Printf("%s: \n", group)
+                for _, foo := range es {
+                    fmt.Printf("    %s\t%s\n", foo.IP, foo.Name)
+                }
+            }
 		} else {
 			fmt.Printf("%s", string(b))
 		}

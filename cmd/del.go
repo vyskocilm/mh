@@ -10,6 +10,7 @@ import (
 
 func init() {
 	rootCmd.AddCommand(delCmd)
+    addGroupFlag(delCmd)
 }
 
 var delCmd = &cobra.Command{
@@ -18,6 +19,7 @@ var delCmd = &cobra.Command{
 	Long:  `delete first matching IP or name from hosts, supports more arguments`,
 	Args: func(cmd *cobra.Command, args []string) error {
         err := parseArgs(cmd, args)
+        applyGroupEnv()
         if err != nil {
             return err
         }
@@ -32,7 +34,7 @@ var delCmd = &cobra.Command{
 		for i := range args {
 			req, err := http.NewRequest(
 				"DELETE",
-				fmt.Sprintf("http://localhost:1234/v1/e/%s", args[i]),
+				fmt.Sprintf("http://localhost:1234/v1/e/%s/%s", groupVar, args[i]),
 				nil,
 			)
 			if err != nil {
